@@ -125,7 +125,8 @@ export async function readImage(file:File,progress:(text:string)=>void){
   if(rect){const padded=document.createElement('canvas');padded.width=resized.width+40;padded.height=resized.height+40;const p=padded.getContext('2d')!;p.fillStyle='white';p.fillRect(0,0,padded.width,padded.height);p.drawImage(resized,20,20);return padded;}
   return resized;
  };
- const worker=await createWorker('eng',1,{workerPath:'/ocr/worker.min.js',corePath:'/ocr/tesseract-core-lstm.wasm.js',langPath:'/ocr',workerBlobURL:false});
+ const asset=(path:string)=>`${import.meta.env.BASE_URL}${path}`;
+ const worker=await createWorker('eng',1,{workerPath:asset('ocr/worker.min.js'),corePath:asset('ocr/tesseract-core-lstm.wasm.js'),langPath:asset('ocr'),workerBlobURL:false});
  try{return await readWithWorker({original:file,pixels,prepare},worker,progress);}finally{await worker.terminate();}
 }
 
