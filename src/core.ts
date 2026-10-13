@@ -13,7 +13,7 @@ export function demo(): Plan {
   ];
   return { vessel:'MAERSK LEON',voyage:'',equipment:'S001',rate:25,zone:'America/Sao_Paulo',travel:null,opening:null,closing:null,source:'Demonstração · transcrição fornecida. Estados de tampa não confirmados.',steps:rows.map(([bay,operation,moves,reefers,empty,notes])=>({...step(bay,moves),operation,reefers,empty,notes})) };
 }
-export const initial = (): State => ({version:1,plan:demo(),run:freshRun(),history:[]});
+export const initial = (): State => ({version:1,plan:{vessel:'',voyage:'',equipment:'',rate:25,zone:'America/Sao_Paulo',travel:null,opening:null,closing:null,source:'Nenhum roteiro cadastrado',steps:[]},run:freshRun(),history:[]});
 export const below = (s: Step) => s.bay.endsWith('B');
 export function continuous(prev: Step | undefined, next: Step) { return !!prev && below(prev) && below(next) && prev.access === next.access; }
 export interface Forecast { index: number; start: number | null; end: number | null; hatchAt: number | null; possible: boolean; continuity: boolean; closureWarning: boolean }

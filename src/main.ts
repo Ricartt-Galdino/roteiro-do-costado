@@ -9,8 +9,13 @@ import { registerReadTool } from './webmcp';
 const root=document.querySelector<HTMLDivElement>('#app')!;
 const CHANGE_SOON_MOVES=3;
 let state:State;let recovery='';
-try{state=load();}catch{state=initial();recovery='Não foi possível ler os dados salvos. O plano de demonstração está aberto; os dados anteriores não serão substituídos até você salvar uma alteração.';}
-let fleet:Fleet=loadFleet(state);if(fleet[state.plan.equipment as keyof Fleet])state=fleet[state.plan.equipment as keyof Fleet]!;
+try{state=load();}catch{state=initial();recovery='Não foi possível ler os dados salvos. O painel foi aberto vazio; os dados anteriores não serão substituídos até você salvar uma alteração.';}
+const legacyDemo=(entry:State)=>entry.plan.vessel==='MAERSK LEON'&&entry.plan.source.startsWith('Demonstração');
+if(legacyDemo(state)){state=initial();try{localStorage.removeItem('costado.v1');}catch{/* O estado vazio segue em memória. */}}
+let fleet:Fleet=loadFleet(state);let removedDemo=false;
+for(const equipment of EQUIPMENT)if(fleet[equipment]&&legacyDemo(fleet[equipment]!)){delete fleet[equipment];removedDemo=true;}
+if(removedDemo)try{saveFleet(fleet);}catch{/* Os planos reais continuam disponíveis nesta sessão. */}
+if(fleet[state.plan.equipment as keyof Fleet])state=fleet[state.plan.equipment as keyof Fleet]!;
 let view:'board'|'vessels'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
 let reviewSelected=0, reviewDirty=false, mobileMenu=false;
 let mobileEquipment:EquipmentId|undefined;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {applyMoves,demo,delay,finish,forecast,freshRun,fromLocal,initial,load,save,start,step,time,undo,updateRemaining,validate} from './core';
 import {parseWorkList} from './import';
 const at=(s:string)=>fromLocal(`2026-10-08T${s}`,'America/Sao_Paulo');
-function fixture(){const s=initial();s.plan.steps=[step('46A',20),{...step('46B',54),hatch:'required'},step('46B',54)];start(s,0,at('17:00'));return s;}
+function fixture(){const s=initial();s.plan.vessel='TESTE';s.plan.equipment='S001';s.plan.steps=[step('46A',20),{...step('46B',54),hatch:'required'},step('46B',54)];start(s,0,at('17:00'));return s;}
 test('20 movimentos a 25/h: abertura às 17h48',()=>{const s=fixture();assert.equal(time(forecast(s.plan,s.run)[1].hatchAt,s.plan.zone),'17:48');});
 test('10 restantes às 17h30: abertura às 17h54',()=>{const s=fixture();updateRemaining(s,10,at('17:30'));assert.equal(time(forecast(s.plan,s.run)[1].hatchAt,s.plan.zone),'17:54');});
 test('continuidade 46B não duplica abertura',()=>{const s=fixture();assert.equal(forecast(s.plan,s.run).filter(x=>x.hatchAt!==null).length,1);});
