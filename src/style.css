@@ -69,3 +69,35 @@
 .next-progress{display:none}
 @media(prefers-reduced-motion:reduce){.bay-progress i:after{transition:none}}
 @media(max-width:640px){.operation-pill{font-size:10px;padding:3px 6px}.bay-progress{margin-top:7px}}
+
+/* Etapa atual e sequência do roteiro */
+.current-stage{padding:13px 14px;border:1px solid #385163;border-radius:10px;background:#182b37;margin-bottom:9px}
+.current-stage-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.current-stage-line>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:21px;color:#fff}
+.current-stage-line .operation-pill{font-family:"IBM Plex Sans",Inter,sans-serif}
+.current-moves{display:flex;align-items:baseline;gap:4px;color:#c5d2db;font-size:12px;white-space:nowrap}
+.current-moves b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:27px;color:var(--highlight)}
+.current-stage .bay-progress{margin:10px 0 1px}
+.current-stage .now-adjust{margin:12px 0 0}
+.current-stage .ready-to-finish{margin:12px 0 0}
+.current-stage .next-strip,.current-stage .swap-strip{margin-top:12px}
+.stage-list{display:grid}
+.stage-row{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;padding:12px 11px}
+.stage-row time{grid-column:2/-1;text-align:left;color:#b3c1cb}
+.stage-row.next-primary{margin-top:0;padding:14px 12px;background:#182b37}
+.stage-row.next-primary strong{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:20px}
+.stage-row.future-row{padding-top:13px;padding-bottom:13px}
+.change-soon .current-stage{border-color:var(--highlight)}
+.change-soon .current-moves b{font-size:32px}
+@media(max-width:640px){
+ .current-stage{padding:13px 12px;margin-bottom:8px}
+ .current-stage-line{grid-template-columns:auto minmax(0,1fr);gap:6px 9px}
+ .current-stage-line>strong{font-size:23px}
+ .current-moves{grid-column:2;justify-self:start}
+ .current-moves b{font-size:32px}
+ .current-stage .now-adjust{grid-template-columns:1fr 1fr;margin-top:13px}
+ .stage-row{grid-template-columns:auto minmax(0,1fr) auto;gap:6px;padding:11px 9px}
+ .stage-row.next-primary{padding:13px 10px}
+ .stage-row.next-primary strong{font-size:18px}
+ .stage-row time{grid-column:2/-1}
+}
