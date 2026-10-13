@@ -79,7 +79,7 @@ function boardCard(equipment:EquipmentId,entry:State){
  if(!mobileEquipment||!visible.includes(mobileEquipment))mobileEquipment=first;
  const vessel=visible.map(id=>fleet[id]?.plan.vessel.trim()).find(Boolean)||'Navio não informado';
  const accumulated=visible.reduce((sum,id)=>sum+(moveCursors[id]?.total??0),0),rate=operating.reduce((sum,id)=>sum+(fleet[id]?.plan.rate??0),0),lastRead=Math.max(0,...visible.map(id=>moveCursors[id]?.reportedAt??0)),stale=!lastRead||Date.now()-lastRead>3*60*1000;
- const updateText=lastRead?(stale?`Sem atualização desde ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')}`:`Atualizado às ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')} · a cada minuto`):'Aguardando primeira leitura';
+ const updateText=lastRead?(stale?`Sem atualização desde ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')}`:`Atualizado às ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')} · leitura automática`):'Aguardando primeira leitura';
  return `<section class="operations-summary"><div class="vessel-summary"><span>Navio</span><strong>${esc(vessel)}</strong></div><div class="summary-kpis"><span><strong>${operating.length}</strong> em operação</span><span><strong>${accumulated}</strong> mov acumulados</span><span><strong>${rate}</strong> mov/h total</span></div><div class="summary-update ${stale?'stale':''}"><span><i></i>${updateText}</span><button data-action="sync-all">Atualizar agora</button></div></section>${visible.length?`<div class="mobile-fleet-selector" aria-label="Selecionar equipamento">${visible.map(id=>`<button data-action="mobile-equipment" data-equipment="${id}" aria-pressed="${mobileEquipment===id}">${id}</button>`).join('')}</div><section class="fleet-grid">${visible.map(id=>boardCard(id,fleet[id]!)).join('')}</section>`:`<section class="panel fleet-empty"><h2>Nenhum equipamento em operação</h2><p>Importe um Crane Work List para incluir equipamentos no painel.</p><button class="primary" data-action="import">Importar plano</button></section>`}`;
 }function warningLink(warning:string){
  const match=warning.match(/^([SM]\d{3})(?:\s*·\s*(\d{2}[AB?]))?:/i),equipment=match?.[1]?.toUpperCase(),bay=match?.[2]?.toUpperCase();
@@ -194,11 +194,25 @@ render();
 registerReadTool(()=>({plan:state.plan,run:state.run,forecast:forecast(state.plan,state.run)}));
 setInterval(()=>{if(view==='board'&&!document.querySelector('dialog'))render();},30000);
 async function syncAllMoves(){const operating=EQUIPMENT.filter(equipment=>fleet[equipment]?.run.started!==null);if(!operating.length){message='Não há equipamentos em operação para atualizar.';render();return;}message='Consultando Moves de todos os equipamentos…';render();await Promise.all(operating.map(equipment=>syncMoves(equipment,false,true)));message=`Moves consultados às ${time(Date.now(),fleet[operating[0]]!.plan.zone)}.`;render();}
-function syncOperatingMoves(){for(const equipment of EQUIPMENT)if(fleet[equipment]?.run.started!=null)void syncMoves(equipment,false,true);}
-syncOperatingMoves();
-setInterval(syncOperatingMoves,60*1000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncOperatingMoves();});
-window.addEventListener('online',syncOperatingMoves);
+let movesPollTimer:number|undefined;
+function scheduleMovesPoll(){
+ if(movesPollTimer)window.clearTimeout(movesPollTimer);
+ const latest=Math.max(0,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));
+ const now=Date.now(),expected=latest+5*60*1000;
+ // A fonte publica em ciclos de cinco minutos. Consultas perto do próximo
+ // ciclo encontram o commit novo mais cedo sem ultrapassar a cota pública.
+ const delay=!latest?60*1000:now<expected-20*1000?expected-20*1000-now:now<expected+60*1000?20*1000:60*1000;
+ movesPollTimer=window.setTimeout(()=>void syncOperatingMoves(),Math.max(1000,delay));
+}
+async function syncOperatingMoves(){
+ const operating=EQUIPMENT.filter(equipment=>fleet[equipment]?.run.started!==null);
+ if(!operating.length)return;
+ await Promise.all(operating.map(equipment=>syncMoves(equipment,false,true)));
+ scheduleMovesPoll();
+}
+void syncOperatingMoves();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void syncOperatingMoves();});
+window.addEventListener('online',()=>void syncOperatingMoves());
 if('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(()=>navigator.serviceWorker.ready).then(()=>{message='App preparado para uso offline neste aparelho.';render();}).catch(()=>{message='O uso offline ainda não está disponível. Abra por HTTPS ou neste computador por localhost.';render();});
 
 
