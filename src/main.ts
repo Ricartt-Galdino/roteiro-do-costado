@@ -3,7 +3,7 @@ import {loadFleet,saveFleet,type Fleet} from './fleet';
 import './style.css';
 import { applyMoves, below, continuous, dateTime, delay, demo, finish, forecast, freshRun, fromLocal, initial, load, localInput, remember, save, start, step, time, undo, updateRemaining, validate, type Plan, type State } from './core';
 import { EQUIPMENT, parseWorkList } from './import';
-import { equipmentMoves, MOVES_FEED_URL, type MovesReading } from './moves-feed';
+import { equipmentMoves, loadMovesFeed, type MovesReading } from './moves-feed';
 import { registerReadTool } from './webmcp';
 
 const root=document.querySelector<HTMLDivElement>('#app')!;
@@ -39,8 +39,8 @@ async function syncMoves(equipment:EquipmentId,baselineOnly=false,silent=false){
  syncingMoves.add(equipment);
  if(!silent){message=`${equipment}: consultando Moves na fonte…`;render();}
  try{
-  const response=await fetch(MOVES_FEED_URL,{cache:'no-store'});if(!response.ok)throw Error('Fonte indisponível');
-  const reading=equipmentMoves(await response.json(),entry.plan.vessel,equipment);
+  const reading=equipmentMoves(await loadMovesFeed(),entry.plan.vessel,equipment);
+
   if(!reading){if(!silent){message=`${equipment}: o navio “${entry.plan.vessel}” não foi encontrado em operação na fonte de Moves. Confira o nome do navio no plano.`;render();}return;}
   const previous=moveCursors[equipment];
   if(baselineOnly||!previous||previous.visit!==reading.visit||reading.total<previous.total){
