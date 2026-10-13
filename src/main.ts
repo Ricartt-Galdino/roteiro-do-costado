@@ -3,7 +3,7 @@ import {loadFleet,saveFleet,type Fleet} from './fleet';
 import './style.css';
 import { applyMoves, below, continuous, dateTime, delay, demo, finish, forecast, freshRun, fromLocal, initial, load, localInput, remember, save, start, step, time, undo, updateRemaining, validate, type Plan, type State } from './core';
 import { EQUIPMENT, parseWorkList } from './import';
-import { equipmentMoves, loadMovesFeed, type MovesReading } from './moves-feed';
+import { equipmentMoves, loadMovesFeed, operatingVessels, type MovesReading, type OperatingVessel } from './moves-feed';
 import { registerReadTool } from './webmcp';
 
 const root=document.querySelector<HTMLDivElement>('#app')!;
@@ -11,12 +11,13 @@ const CHANGE_SOON_MOVES=3;
 let state:State;let recovery='';
 try{state=load();}catch{state=initial();recovery='Não foi possível ler os dados salvos. O plano de demonstração está aberto; os dados anteriores não serão substituídos até você salvar uma alteração.';}
 let fleet:Fleet=loadFleet(state);if(fleet[state.plan.equipment as keyof Fleet])state=fleet[state.plan.equipment as keyof Fleet]!;
-let view:'board'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
+let view:'board'|'vessels'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
 let reviewSelected=0, reviewDirty=false, mobileMenu=false;
 let mobileEquipment:EquipmentId|undefined;
 type EquipmentId=typeof EQUIPMENT[number];
 type MoveCursors=Partial<Record<EquipmentId,MovesReading>>;
 let moveCursors:MoveCursors={};
+let activeVessels:OperatingVessel[]=[], vesselsReadAt=0, vesselsLoading=false;
 const syncingMoves=new Set<EquipmentId>();
 try{moveCursors=JSON.parse(localStorage.getItem('costado.moves-cursors.v1')??'{}') as MoveCursors;}catch{moveCursors={};}
 function saveMoveCursors(){try{localStorage.setItem('costado.moves-cursors.v1',JSON.stringify(moveCursors));}catch{ /* O roteiro continua utilizável sem o cursor salvo. */ }}
@@ -54,10 +55,18 @@ async function syncMoves(equipment:EquipmentId,baselineOnly=false,silent=false){
   if(!silent)message=applied===delta?`${equipment}: ${delta} mov abatidos do roteiro.`:`${equipment}: ${applied} mov aplicados; confira a próxima bay.`;render();
  }catch{if(!silent){message=`Não foi possível consultar os Moves de ${equipment}. O roteiro não foi alterado; tente novamente em alguns minutos.`;render();}}finally{syncingMoves.delete(equipment);}
 }
+async function refreshOperatingVessels(silent=false){
+ if(vesselsLoading)return;
+ vesselsLoading=true;
+ if(!silent){message='Consultando navios em operação…';render();}
+ try{const payload=await loadMovesFeed();activeVessels=operatingVessels(payload);const raw=(payload as {reportReferenceTime?:string;generatedAt?:string}).reportReferenceTime??(payload as {generatedAt?:string}).generatedAt;vesselsReadAt=raw&&Number.isFinite(new Date(raw).getTime())?new Date(raw).getTime():Date.now();}
+ catch{if(!silent)message='Não foi possível consultar os navios em operação. Tente novamente em alguns instantes.';}
+ finally{vesselsLoading=false;render();}
+}
 const status=(index:number)=>state.run.completed[state.plan.steps[index].id]?'✓ Concluído':index===state.run.current&&state.run.started!==null?'▶ Em andamento':index<state.run.current?'— Anterior ao acompanhamento':'○ Planejado';
 function hatchLabel(p:Plan,i:number){const s=p.steps[i];return below(s)?continuous(p.steps[i-1],s)?'↳ Continuidade do acesso':s.hatch==='open'?'✓ Tampa já aberta':s.hatch==='required'?'◇ Abertura necessária':'? Possível abertura — confirmar estado da tampa':s.closure?'◇ Fechamento previsto':p.steps[i-1]&&below(p.steps[i-1])?'? Verificar necessidade de fechamento':'Convés';}
-function header(){const latest=Math.max(0,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));return `<header><button class="mobile-menu" data-action="mobile-menu" aria-label="Abrir menu">☰</button><a class="brand" href="#" data-action="board"><img src="/icon.svg" alt="" width="42" height="42"><span>ROTEIRO <strong>DO COSTADO</strong></span></a><span class="mobile-header-update">${latest?time(latest,state.plan.zone):'—'}<button data-action="sync-all" aria-label="Atualizar Moves">↻</button></span><nav class="${mobileMenu?'open':''}" aria-label="Principal"><button class="${view==='board'?'selected':''}" data-action="board">Painel operacional</button><button class="${view==='edit'?'selected':''}" data-action="edit">Conferir plano</button><button class="import-nav ${view==='import'?'selected':''}" data-action="import">Importar</button></nav></header>`;}
-function render(){root.innerHTML=header()+`<main>${message?`<div class="notice" role="status"><span>${esc(message)}</span>${manualUndo?'<button class="notice-undo" data-action="undo-manual">Desfazer</button>':''}<button data-action="dismiss" aria-label="Fechar aviso">×</button></div>`:''}${view==='board'?board():view==='edit'?editor():importer()}</main>${view==='board'?'':`<footer>Previsão de apoio ao costado. Confirmar alterações com a Sala de Planejamento.<span>Dados neste aparelho · ${esc(state.plan.zone)}</span></footer>`}`;}
+function header(){const latest=Math.max(vesselsReadAt,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));return `<header><button class="mobile-menu" data-action="mobile-menu" aria-label="Abrir menu">☰</button><a class="brand" href="#" data-action="board"><img src="/icon.svg" alt="" width="42" height="42"><span>ROTEIRO <strong>DO COSTADO</strong></span></a><span class="mobile-header-update">${latest?time(latest,state.plan.zone):'—'}<button data-action="sync-all" aria-label="Atualizar Moves">↻</button></span><nav class="${mobileMenu?'open':''}" aria-label="Principal"><button class="${view==='board'?'selected':''}" data-action="board">Painel operacional</button><button class="${view==='vessels'?'selected':''}" data-action="vessels">Navios em operação</button><button class="${view==='edit'?'selected':''}" data-action="edit">Conferir plano</button><button class="import-nav ${view==='import'?'selected':''}" data-action="import">Importar</button></nav></header>`;}
+function render(){root.innerHTML=header()+`<main>${message?`<div class="notice" role="status"><span>${esc(message)}</span>${manualUndo?'<button class="notice-undo" data-action="undo-manual">Desfazer</button>':''}<button data-action="dismiss" aria-label="Fechar aviso">×</button></div>`:''}${view==='board'?board():view==='vessels'?vessels():view==='edit'?editor():importer()}</main>${view==='board'||view==='vessels'?'':`<footer>Previsão de apoio ao costado. Confirmar alterações com a Sala de Planejamento.<span>Dados neste aparelho · ${esc(state.plan.zone)}</span></footer>`}`;}
 function boardCard(equipment:EquipmentId,entry:State){
  const {plan:p,run:r}=entry,current=p.steps[r.current],next=p.steps[r.current+1],rows=forecast(p,r),nextRow=rows[1],cursor=moveCursors[equipment],active=r.started!==null,remaining=active?r.remaining:null,swapSoon=active&&remaining!==null&&remaining<=CHANGE_SOON_MOVES;
  const operationName=(step:typeof current)=>step?.operation==='descarga'?'Descarga':'Embarque';
@@ -82,6 +91,11 @@ function boardCard(equipment:EquipmentId,entry:State){
  const accumulated=visible.reduce((sum,id)=>sum+(moveCursors[id]?.total??0),0),rate=operating.reduce((sum,id)=>sum+(fleet[id]?.plan.rate??0),0),lastRead=Math.max(0,...visible.map(id=>moveCursors[id]?.reportedAt??0)),stale=!lastRead||Date.now()-lastRead>3*60*1000;
  const updateText=lastRead?(stale?`Sem atualização desde ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')}`:`Atualizado às ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')} · leitura automática`):'Aguardando primeira leitura';
  return `<section class="operations-summary"><div class="vessel-summary"><span>Navio</span><strong>${esc(vessel)}</strong></div><div class="summary-kpis"><span><strong>${operating.length}</strong> em operação</span><span><strong>${accumulated}</strong> mov acumulados</span><span><strong>${rate}</strong> mov/h total</span></div><div class="summary-update ${stale?'stale':''}"><span><i></i>${updateText}</span><button data-action="sync-all">Atualizar agora</button></div></section>${visible.length?`<div class="mobile-fleet-selector" aria-label="Selecionar equipamento">${visible.map(id=>`<button data-action="mobile-equipment" data-equipment="${id}" aria-pressed="${mobileEquipment===id}">${id}</button>`).join('')}</div><section class="fleet-grid">${visible.map(id=>boardCard(id,fleet[id]!)).join('')}</section>`:`<section class="panel fleet-empty"><h2>Nenhum equipamento em operação</h2><p>Importe um Crane Work List para incluir equipamentos no painel.</p><button class="primary" data-action="import">Importar plano</button></section>`}`;
+}function vessels(){
+ const updated=vesselsReadAt?`Atualizado às ${time(vesselsReadAt,state.plan.zone)}`:'Aguardando leitura';
+ const berth=(value:string)=>value.replace(/^BERCO\s*/i,'Berço ');
+ const cards=activeVessels.map(vessel=>`<article class="vessel-card"><div class="vessel-card-head"><strong>${esc(vessel.vessel)}</strong><span><i></i>Em operação</span></div><p>${esc(vessel.service)} · ${esc(vessel.voyage)} · ${esc(berth(vessel.berth))}</p><div class="vessel-kpis"><span><small>MPH</small><b>${vessel.mph===null?'—':vessel.mph.toFixed(1).replace('.',',')}</b></span><span><small>Moves</small><b>${vessel.moves}</b></span><span><small>Início</small><b>${esc(vessel.startedLabel)}</b></span></div></article>`).join('');
+ return `<section class="vessels-heading"><div><div class="eyebrow">MOVES · FONTE OPERACIONAL</div><h1>Navios em operação</h1><p>${activeVessels.length?`${activeVessels.length} navio${activeVessels.length===1?'':'s'} em operação na última leitura.`:'A consulta mostrará os navios ativos na fonte.'}</p></div><div><span class="vessels-updated"><i></i>${updated}</span><button data-action="refresh-vessels" ${vesselsLoading?'disabled':''}>${vesselsLoading?'Atualizando…':'Atualizar agora'}</button></div></section>${cards?`<section class="vessels-grid">${cards}</section>`:`<section class="panel vessels-empty"><h2>${vesselsLoading?'Consultando navios…':'Nenhum navio em operação'}</h2><p>${vesselsLoading?'Aguarde a leitura da fonte de Moves.':'Atualize a lista para consultar a fonte operacional.'}</p></section>`}`;
 }function warningLink(warning:string){
  const match=warning.match(/^([SM]\d{3})(?:\s*·\s*(\d{2}[AB?]))?:/i),equipment=match?.[1]?.toUpperCase(),bay=match?.[2]?.toUpperCase();
  let index=equipment?candidates.findIndex(p=>p.equipment===equipment):-1,focus=/confira a etiqueta/i.test(warning)?'review-equipment-confirm':/produtividade/i.test(warning)?'review-rate-confirm':'review-total';
@@ -137,6 +151,7 @@ root.addEventListener('click',e=>{const b=(e.target as HTMLElement).closest<HTML
 switch(action){
 case 'dismiss':message='';manualUndo=null;render();break;
 case 'board':view='board';mobileMenu=false;render();break;
+case 'vessels':view='vessels';mobileMenu=false;render();if(!activeVessels.length)void refreshOperatingVessels();break;
 case 'edit':draft=structuredClone(state.plan);view='edit';render();break;
 case 'import':view='import';render();break;
 case 'mobile-menu':mobileMenu=!mobileMenu;render();break;
@@ -146,6 +161,7 @@ case 'fleet-import':view='import';message='Importe o Crane Work List e selecione
 case 'fleet-start':{const equipment=b.dataset.equipment as EquipmentId,entry=fleet[equipment];if(!entry||entry.run.started!==null||!entry.plan.steps[entry.run.current])break;manualUndo=null;state=entry;const bay=state.plan.steps[state.run.current].bay;start(state,state.run.current,Date.now());recordActivity(equipment,`Bay ${bay} iniciada.`);persist(`Bay ${bay} iniciada.`);void syncMoves(equipment,true);break;}
 case 'fleet-sync':void syncMoves(b.dataset.equipment as EquipmentId);break;
 case 'sync-all':void syncAllMoves();break;
+case 'refresh-vessels':void refreshOperatingVessels();break;
 case 'fleet-adjust':{const equipment=b.dataset.equipment as EquipmentId,entry=fleet[equipment],delta=Number(b.dataset.delta),remaining=entry?.run.remaining;if(!entry||entry.run.started===null||!Number.isInteger(delta)||typeof remaining!=='number')break;manualUndo={equipment,run:structuredClone(entry.run),activityCount:(activityLog[equipment]??[]).length};state=entry;updateRemaining(state,Math.max(0,remaining+delta),Date.now());recordActivity(equipment,`Ajuste manual ${delta>0?'+':'−'}1 movimento.`);persist(`Quantidade ajustada. ${delta>0?'Um movimento acrescentado.':'Um movimento abatido.'}`);break;}
 case 'fleet-finish':{const equipment=b.dataset.equipment as EquipmentId,entry=fleet[equipment];if(!entry||entry.run.started===null)break;state=entry;const bay=state.plan.steps[state.run.current].bay;modal(`Finalizar Bay ${bay}?`,'<p>Esta ação encerra a bay atual e prepara a próxima etapa.</p>',()=>{manualUndo={equipment,run:structuredClone(entry.run),activityCount:(activityLog[equipment]??[]).length};finish(state,Date.now());recordActivity(equipment,`Bay ${bay} finalizada manualmente.`);persist(`Bay ${bay} finalizada.`);if(manualUndoTimer)window.clearTimeout(manualUndoTimer);manualUndoTimer=window.setTimeout(()=>{manualUndo=null;render();},8000);});break;}
 case 'undo-manual':{if(!manualUndo)break;const savedUndo=manualUndo,entry=fleet[savedUndo.equipment],entries=activityLog[savedUndo.equipment]??[];if(!entry)break;entry.run=structuredClone(savedUndo.run);activityLog[savedUndo.equipment]=entries.slice(Math.max(0,entries.length-savedUndo.activityCount));saveActivity();state=entry;manualUndo=null;persist('Ação manual desfeita.');break;}

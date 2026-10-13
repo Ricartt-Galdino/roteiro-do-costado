@@ -101,3 +101,12 @@
  .stage-row.next-primary strong{font-size:18px}
  .stage-row time{grid-column:2/-1}
 }
+
+/* Navios em operação */
+.vessels-heading{display:flex;justify-content:space-between;align-items:end;gap:20px;padding:4px 0 22px;border-bottom:1px solid var(--card-line);margin-bottom:20px}
+.vessels-heading h1{margin:5px 0 4px;font-size:30px}.vessels-heading p{margin:0;color:var(--secondary);font-size:13px}
+.vessels-heading>div:last-child{display:flex;align-items:center;gap:12px}.vessels-heading button{min-height:44px;padding:8px 14px;font-size:13px}
+.vessels-updated{display:flex;align-items:center;gap:7px;color:#b3c1cb;font-size:12px;white-space:nowrap}.vessels-updated i,.vessel-card-head span i{width:8px;height:8px;border-radius:50%;background:#79c877}
+.vessels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.vessel-card{padding:16px 17px;border:1px solid #385163;border-radius:12px;background:#14212a}.vessel-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vessel-card-head strong{color:#e8eef2;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:17px}.vessel-card-head span{display:flex;align-items:center;gap:6px;color:#a9dcff;font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap}.vessel-card-head span i{width:7px;height:7px}.vessel-card>p{margin:6px 0 14px;color:var(--secondary);font-size:12px}.vessel-kpis{display:flex;gap:23px}.vessel-kpis span{display:grid;gap:2px}.vessel-kpis small{font-size:10px;color:#8fa0ac;text-transform:uppercase;letter-spacing:.05em}.vessel-kpis b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:15px;color:#e8eef2}.vessels-empty{background:var(--card);border-color:var(--card-line)}
+@media(max-width:640px){.vessels-heading{align-items:start;gap:14px;padding-bottom:14px}.vessels-heading h1{font-size:24px}.vessels-heading>div:last-child{align-items:end;flex-direction:column;gap:7px}.vessels-heading button{min-height:40px}.vessels-updated{font-size:11px}.vessels-grid{grid-template-columns:1fr;gap:10px}.vessel-card{padding:14px}.vessel-card-head strong{font-size:15px}.vessel-kpis{gap:20px}}

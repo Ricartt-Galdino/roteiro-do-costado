@@ -4,12 +4,18 @@ const RAW_URL=(sha:string)=>`https://raw.githubusercontent.com/brunosth-rgb/vess
 const allowed=new Set(['load','discharge','restow','rehandle','shift','removal']);
 type Row=Record<string,unknown>;
 export interface MovesReading { visit:string; total:number; reportedAt:number }
+export interface OperatingVessel { visit:string; vessel:string; service:string; voyage:string; berth:string; moves:number; mph:number|null; startedAt:number|null; startedLabel:string }
 let feedPayload:unknown;
 let feedSha='';
 let feedRequest:Promise<unknown>|null=null;
 
 const clean=(value:unknown)=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/gi,'').toUpperCase();
 const working=(value:unknown)=>['W','WORKING'].includes(String(value??'').trim().toUpperCase());
+const sourceDate=(value:unknown)=>{
+ const match=String(value??'').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+ return match?new Date(Number(match[3]),Number(match[2])-1,Number(match[1]),Number(match[4]),Number(match[5])).getTime():null;
+};
+const sourceTime=(value:unknown)=>String(value??'').match(/\b(\d{2}:\d{2})$/)?.[1]??'—';
 export const latestCommitSha=(value:unknown)=>{
  if(!Array.isArray(value))return null;
  const sha=(value[0] as {sha?:unknown}|undefined)?.sha;
@@ -54,4 +60,19 @@ export function equipmentMoves(payload:unknown,vessel:string,equipment:string):M
  const raw=data.reportReferenceTime??data.generatedAt;
  const reportedAt=raw&&Number.isFinite(new Date(raw).getTime())?new Date(raw).getTime():Date.now();
  return {visit:visits[0],total,reportedAt};
+}
+
+/** Converte a lista operacional pública em cartões de navios ativos. */
+export function operatingVessels(payload:unknown):OperatingVessel[] {
+ const data=payload as {moveRows?:Row[];vesselRows?:Row[];reportReferenceTime?:string;generatedAt?:string};
+ if(!Array.isArray(data.moveRows)||!Array.isArray(data.vesselRows))return [];
+ const raw=data.reportReferenceTime??data.generatedAt;
+ const reference=raw&&Number.isFinite(new Date(raw).getTime())?new Date(raw).getTime():Date.now();
+ return data.vesselRows.filter(row=>working(row['Phase'])).map(row=>{
+  const visit=String(row['Visit']??'').trim();
+  const moves=data.moveRows!.filter(move=>clean(move['Carrier Visit'])===clean(visit)&&allowed.has(String(move['Move Kind']??'').trim().toLowerCase())).length;
+  const startedAt=sourceDate(row['Time Start Work']);
+  const hours=startedAt===null?0:(reference-startedAt)/3_600_000;
+  return {visit,vessel:String(row['Vessel Name']??'Navio não identificado').trim(),service:String(row['Service Name']??'—').trim(),voyage:String(row['I/B Vyg']??row['O/B Vyg']??'—').trim(),berth:String(row['Berth']??row['Berth ID']??'—').trim(),moves,mph:hours>0?moves/hours:null,startedAt,startedLabel:sourceTime(row['Time Start Work'])};
+ }).sort((a,b)=>a.berth.localeCompare(b.berth)||a.vessel.localeCompare(b.vessel));
 }
