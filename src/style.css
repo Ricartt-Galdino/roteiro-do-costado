@@ -110,3 +110,49 @@
 .vessels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
 .vessel-card{position:relative;width:100%;padding:16px 17px;border:1px solid #385163;border-radius:12px;background:#14212a;text-align:left;color:var(--text);cursor:pointer}.vessel-card:hover,.vessel-card:focus-visible{border-color:var(--highlight);background:#182b37}.vessel-card:focus-visible{outline:2px solid var(--highlight);outline-offset:2px}.vessel-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.vessel-card-head strong{color:#e8eef2;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:17px}.vessel-card-head span{display:flex;align-items:center;gap:6px;color:#a9dcff;font-size:11px;font-weight:700;text-transform:uppercase;white-space:nowrap}.vessel-card-head span i{width:7px;height:7px}.vessel-card>p{margin:6px 0 14px;color:var(--secondary);font-size:12px}.vessel-kpis{display:flex;gap:23px}.vessel-kpis span{display:grid;gap:2px}.vessel-kpis small{font-size:10px;color:#8fa0ac;text-transform:uppercase;letter-spacing:.05em}.vessel-kpis b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:15px;color:#e8eef2}.vessel-import-hint{display:block;margin-top:13px;color:var(--highlight);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.import-target{margin:10px 0 0;padding:9px 11px;border:1px solid #6f8f3a;border-radius:8px;background:#1f2f1c;color:#d9faa8;font-size:13px}.vessels-empty{background:var(--card);border-color:var(--card-line)}
 @media(max-width:640px){.vessels-heading{align-items:start;gap:14px;padding-bottom:14px}.vessels-heading h1{font-size:24px}.vessels-heading>div:last-child{align-items:end;flex-direction:column;gap:7px}.vessels-heading button{min-height:40px}.vessels-updated{font-size:11px}.vessels-grid{grid-template-columns:1fr;gap:10px}.vessel-card{padding:14px}.vessel-card-head strong{font-size:15px}.vessel-kpis{gap:20px}}
+/* Leitura operacional: posição atual, destino e sequência. */
+.now-adjust button small{font-size:11px;font-weight:400;display:block;margin-top:3px;color:#c5d2db}
+@media(max-width:640px){
+ body{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+ .fleet-grid .equipment-card.mobile-selected{padding:0;border:0;background:transparent;overflow:visible;min-height:0}
+ .equipment-card-head{padding:4px 2px 10px;margin:0}
+ .equipment-card-head>strong{font-size:24px;color:#fff}
+ .equipment-card-head .tag{font-size:11px}
+ .current-stage{background:#223426;border:1px solid #647e42;border-top:4px solid var(--highlight);border-radius:12px;padding:15px 16px;margin-bottom:16px}
+ .current-stage-line{grid-template-columns:minmax(0,1fr) auto;gap:10px 8px}
+ .current-stage-line>.stage-label{grid-column:1/-1;color:#d4f6a2;font-size:11px;letter-spacing:.12em;display:flex;align-items:center;gap:7px}
+ .current-stage-line>.stage-label:before{content:'';width:8px;height:8px;border-radius:50%;background:var(--highlight)}
+ .current-stage-line>strong{grid-column:1;grid-row:2;font-size:34px;line-height:1.12;white-space:normal;overflow:visible;letter-spacing:-1px}
+ .current-stage-line .operation-pill{display:table;margin-top:8px;font-size:12px;letter-spacing:0;padding:4px 8px}
+ .current-moves{grid-column:2;grid-row:2;display:grid;gap:2px;justify-items:end;align-self:start;text-align:right;white-space:normal}
+ .current-moves b,.change-soon .current-moves b{font-size:44px;line-height:1;color:#e2ffb4}
+ .current-moves>span{font-size:11px;line-height:1.35;color:#d2dfcd}
+ .current-stage .bay-progress{margin-top:16px;color:#d2dfcd;grid-template-columns:1fr}
+ .bay-progress i{height:6px;background:#40543c}
+ .current-stage .now-adjust{margin-top:14px;gap:10px}
+ .current-stage .now-adjust button{min-height:52px;background:#16251c;border-color:#63775b;font-size:20px}
+ .current-stage .now-adjust .plus-adjust{color:#fff;border-color:#63775b}
+ .current-stage .next-strip{background:transparent;border-top:1px solid #566c48;border-radius:0;margin-top:12px;padding:11px 0 0;color:#d2dfcd}
+ .current-stage .next-strip strong{color:#fff;font-size:19px}
+ .stage-row.next-primary{position:relative;grid-template-columns:minmax(0,1fr) auto;background:#162b3b;border:1px solid #49799a;border-left:4px solid #8fceff;padding:14px;margin-bottom:15px;border-radius:10px;gap:8px}
+ .stage-row.next-primary>.stage-label{grid-column:1/-1;color:#addcff;font-size:11px;letter-spacing:.12em}
+ .stage-row.next-primary>.stage-label:after{content:' ↓';font-size:15px}
+ .stage-row.next-primary>strong{grid-column:1;font-size:25px;white-space:normal;overflow:visible;line-height:1.3}
+ .stage-row.next-primary .operation-pill{display:table;margin:6px 0 0;transform:none;font-size:11px}
+ .stage-row.next-primary>.stage-moves{grid-column:2;grid-row:2;font-size:14px;color:#e3eff7;align-self:start;padding-top:6px}
+ .stage-row.next-primary time{grid-column:1/-1;font-size:11px;white-space:normal;line-height:1.6;border-top:1px solid #35536a;padding-top:9px;margin-top:2px}
+ .stage-row.next-primary time b{color:#fff;font-size:15px}
+ .stage-row.future-row{grid-template-columns:24px minmax(0,1fr) auto;padding:11px 2px;gap:5px 9px;background:transparent}
+ .stage-row.future-row>.stage-label{grid-row:1/3;align-self:start;margin-top:2px;border:1px solid #526675;border-radius:50%;height:23px;display:grid;place-items:center;font-size:11px;color:#c5d2db;letter-spacing:0}
+ .stage-row.future-row>strong{font-size:15px;color:#d7e2e8}
+ .stage-row.future-row time{grid-column:2/-1;color:#aebfca;font-size:11px}
+ .stage-row.future-row .operation-pill{font-size:10px}
+ .card-meta{margin-top:14px;padding:12px 2px;border-top:1px solid #34424a;color:#aebfca}
+ .equipment-card footer{padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+ .card-actions{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+ .card-actions .finish-bay,.change-soon .card-actions .finish-bay{background:var(--highlight);border-color:var(--highlight);color:#14210b;font-size:14px}
+ .card-actions .primary,.change-soon .card-actions .primary{background:transparent;border-color:#596c79;color:#e0eaf0;font-size:13px}
+ .card-actions button{min-height:50px}
+ .change-soon .current-stage{border-color:var(--highlight)}
+ .stage-row.swap-next{border-color:var(--highlight)}
+}
