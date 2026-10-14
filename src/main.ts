@@ -20,6 +20,13 @@ let view:'board'|'vessels'|'edit'|'import'='board', draft:Plan=structuredClone(s
 let reviewSelected=0, reviewDirty=false, mobileMenu=false;
 let mobileEquipment:EquipmentId|undefined;
 type EquipmentId=typeof EQUIPMENT[number];
+let equipmentTeams:Partial<Record<EquipmentId,number>>={};
+try{
+ const saved=JSON.parse(localStorage.getItem('costado.teams.v1')??'{}');
+ for(const equipment of EQUIPMENT)if(Number.isInteger(saved?.[equipment])&&saved[equipment]>=1&&saved[equipment]<=5)equipmentTeams[equipment]=saved[equipment];
+}catch{/* Sem atribuições válidas salvas. */}
+const equipmentTeamLabel=(equipment:EquipmentId)=>equipmentTeams[equipment]?`${equipmentTeams[equipment]}º terno ${equipment}`:equipment;
+
 type MoveCursors=Partial<Record<EquipmentId,MovesReading>>;
 let moveCursors:MoveCursors={};
 let activeVessels:OperatingVessel[]=[], vesselsReadAt=0, vesselsLoading=false;
@@ -88,7 +95,7 @@ function boardCard(equipment:EquipmentId,entry:State){
  const nowText=`<section class="current-stage"><div class="current-stage-line"><span class="stage-label">Você está aqui</span><strong>Bay ${esc(current?.bay??'—')} ${operationPill(current)}</strong><span class="current-moves"><b>${active?remaining:(current?.moves??0)}</b> <span>movimentos<br>restantes</span></span></div>${bayProgress}${nowControls}${handoff}</section>`;
  const nextText=next?p.steps.slice(r.current+1).map((step,index)=>{const row=rows[index+1];return `<div class="stage-row ${index===0?'next-primary':''} ${index>0?'future-row':''} ${swapSoon&&index===0?'swap-next':''}"><span class="stage-label">${index===0?'A seguir':`${index+2}`}</span><strong>Bay ${esc(step.bay)} ${operationPill(step)}</strong><span class="stage-moves">${step.moves??0} mov.</span><time>${index===0?`Início previsto <b>${nextStart}</b> · `:``}Fim aprox. ${row?.end?time(row.end,p.zone):'A definir'}</time></div>`;}).join(''):`<div class="stage-row empty-next"><span class="stage-label">PRÓXIMO</span><strong>Sem próximo trabalho</strong></div>`;
  const history=activity.length>1?`<details class="card-history"><summary>Ver histórico completo</summary>${activity.map(item=>`<p><time>${time(item.at,p.zone)}</time>${esc(shortMov(item.text))}</p>`).join('')}</details>`:'';
- return `<article class="equipment-card ${active?'running':''} ${swapSoon?'change-soon':''} ${mobileEquipment===equipment?'mobile-selected':''}"><div class="equipment-card-head"><strong>${equipment}</strong><span class="tag">${swapSoon?'Troca em breve':active?'Em operação':'Aguardando início'}</span></div>${nowText}<div class="stage-list" aria-label="Sequência das próximas bays">${nextText}</div><div class="card-meta"><span><strong>${cursor?.total??0}</strong> mov acumulados · ${p.rate} mov/h</span>${last?`<p><time>${time(last.at,p.zone)}</time> · ${esc(shortMov(last.text))}</p>`:'<p>Sem alterações registradas</p>'}</div>${history}<footer><div class="card-actions">${active?`<button class="finish-bay" data-action="fleet-finish" data-equipment="${equipment}">Concluir bay →</button>`:`<button class="finish-bay" data-action="fleet-start" data-equipment="${equipment}">Iniciar acompanhamento</button>`}<button class="primary" data-action="fleet-detail" data-equipment="${equipment}" title="Conferir e ajustar o plano">Ver plano</button></div></footer></article>`;
+ return `<article class="equipment-card ${active?'running':''} ${swapSoon?'change-soon':''} ${mobileEquipment===equipment?'mobile-selected':''}"><div class="equipment-card-head"><button class="equipment-team" data-action="assign-team" data-equipment="${equipment}" aria-label="Atribuir terno a ${equipment}" title="Atribuir ou alterar terno">${equipmentTeamLabel(equipment)} <span aria-hidden="true">⌄</span></button><span class="tag">${swapSoon?'Troca em breve':active?'Em operação':'Aguardando início'}</span></div>${nowText}<div class="stage-list" aria-label="Sequência das próximas bays">${nextText}</div><div class="card-meta"><span><strong>${cursor?.total??0}</strong> mov acumulados · ${p.rate} mov/h</span>${last?`<p><time>${time(last.at,p.zone)}</time> · ${esc(shortMov(last.text))}</p>`:'<p>Sem alterações registradas</p>'}</div>${history}<footer><div class="card-actions">${active?`<button class="finish-bay" data-action="fleet-finish" data-equipment="${equipment}">Concluir bay →</button>`:`<button class="finish-bay" data-action="fleet-start" data-equipment="${equipment}">Iniciar acompanhamento</button>`}<button class="primary" data-action="fleet-detail" data-equipment="${equipment}" title="Conferir e ajustar o plano">Ver plano</button></div></footer></article>`;
 }function board(){
  const visible=EQUIPMENT.filter(id=>{const entry=fleet[id];return !!entry&&entry.run.current<entry.plan.steps.length&&entry.plan.steps.some(step=>(step.moves??0)>0);});
  const operating=visible.filter(id=>fleet[id]?.run.started!==null),first=visible[0];
@@ -162,6 +169,16 @@ case 'edit':draft=structuredClone(state.plan);view='edit';render();break;
 case 'import':importTarget=null;view='import';render();break;
 case 'mobile-menu':mobileMenu=!mobileMenu;render();break;
 case 'mobile-equipment':mobileEquipment=b.dataset.equipment as EquipmentId;render();break;
+case 'assign-team':{
+ const equipment=b.dataset.equipment as EquipmentId;if(!EQUIPMENT.includes(equipment))break;
+ modal(`Terno · ${equipment}`,`<label>Atribuir terno<select name="team">${opt('','Sem terno',String(equipmentTeams[equipment]??''))}${[1,2,3,4,5].map(team=>opt(String(team),`${team}º terno`,String(equipmentTeams[equipment]??''))).join('')}</select></label>`,data=>{
+  const value=String(data.get('team')??''),team=Number(value);
+  if(value!==''&&(!Number.isInteger(team)||team<1||team>5))throw Error('Escolha do 1º ao 5º terno.');
+  const updated={...equipmentTeams};if(value==='')delete updated[equipment];else updated[equipment]=team;
+  try{localStorage.setItem('costado.teams.v1',JSON.stringify(updated));}catch{throw Error('Não foi possível salvar o terno neste aparelho. Tente novamente.');}
+  equipmentTeams=updated;render();
+ });break;
+}
 case 'fleet-detail':{const equipment=b.dataset.equipment as typeof EQUIPMENT[number],entry=fleet[equipment];if(!entry)break;state=entry;draft=structuredClone(state.plan);view='edit';render();break;}
 case 'fleet-import':view='import';message='Importe o Crane Work List e selecione o bloco de '+b.dataset.equipment+'.';render();break;
 case 'fleet-start':{const equipment=b.dataset.equipment as EquipmentId,entry=fleet[equipment];if(!entry||entry.run.started!==null||!entry.plan.steps[entry.run.current])break;manualUndo=null;state=entry;const bay=state.plan.steps[state.run.current].bay;start(state,state.run.current,Date.now());recordActivity(equipment,`Bay ${bay} iniciada.`);persist(`Bay ${bay} iniciada.`);void syncMoves(equipment,true);break;}

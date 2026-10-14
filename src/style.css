@@ -156,3 +156,8 @@
  .change-soon .current-stage{border-color:var(--highlight)}
  .stage-row.swap-next{border-color:var(--highlight)}
 }
+
+.equipment-card-head .equipment-team{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 6px;margin-left:-6px;border:1px solid transparent;background:transparent;color:var(--highlight);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:20px;text-align:left;line-height:1.25}
+.equipment-card-head .equipment-team:hover{background:#25382c;border-color:#6f8f3a}
+.equipment-team>span{font-family:Arial,sans-serif;font-size:18px;color:#b6c8ab}
+@media(max-width:640px){.equipment-card-head .equipment-team{font-size:20px}.equipment-card-head{gap:8px}.equipment-card-head .tag{flex-shrink:0}}
