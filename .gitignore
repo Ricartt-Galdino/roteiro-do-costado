@@ -3,6 +3,7 @@ dist/
 .env*
 !.env.example
 *.log
+*.apk
 public/ocr/
 .openai/
 Transcricao MAERSK LEON.txt

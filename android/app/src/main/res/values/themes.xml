@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.ControleCostado" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#0D151B</item>
+        <item name="android:navigationBarColor">#0D151B</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

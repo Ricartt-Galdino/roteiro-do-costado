@@ -2,6 +2,17 @@
 
 App web independente em TypeScript, para tablet e celular. Não altera o app Android de escalas.
 
+## App Android nativo
+
+O projeto Kotlin/Jetpack Compose fica em `android/`. O APK de teste é gerado por
+`android/gradlew.bat assembleDebug` e importa o arquivo `roteiro-costado.json`
+exportado por este painel. A importação leva os planos, o andamento e a atribuição
+do 1º ao 5º terno. Os dados ficam salvos apenas no aparelho.
+
+No Android, a tela inicial resume todos os ternos. Toque em um cartão para abrir
+a bay atual, movimentos restantes, próxima etapa, sequência do plano e os controles
+de acompanhamento.
+
 ## Abrir no Windows
 
 Abra `Iniciar Costado.cmd`. Ele instala dependências caso necessário, gera a versão offline e inicia o app em http://localhost:5178. Mantenha a janela aberta enquanto acessar pelo computador. É necessário Node.js 20.19+ (esta máquina tem Node 24).
