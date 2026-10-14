@@ -161,3 +161,56 @@
 .equipment-card-head .equipment-team:hover{background:#25382c;border-color:#6f8f3a}
 .equipment-team>span{font-family:Arial,sans-serif;font-size:18px;color:#b6c8ab}
 @media(max-width:640px){.equipment-card-head .equipment-team{font-size:20px}.equipment-card-head{gap:8px}.equipment-card-head .tag{flex-shrink:0}}
+
+/* Visão geral do costado no celular */
+.mobile-costado-overview{display:none}
+@media(max-width:640px){
+ .mobile-costado-overview.is-visible{display:block}
+ body:has(.mobile-costado-overview.is-visible){padding-bottom:20px}
+ main:has(.mobile-costado-overview.is-visible) .operations-summary{display:none}
+ .mobile-costado-overview+.mobile-fleet-selector.overview-selected{display:none}
+ .fleet-grid.mobile-overview-active .equipment-card.mobile-selected{display:none}
+ .costado-overview-head{padding:5px 2px 16px}
+ .costado-overview-head>span{color:#8fa0ac;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+ .costado-overview-head h1{margin:5px 0 4px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:24px;letter-spacing:-.6px;color:#fff}
+ .costado-overview-head p{margin:0;color:#afbec7;font-size:12px}
+ .costado-overview-head p strong{color:var(--highlight);font-size:15px}
+ .costado-terno-list{display:grid;gap:10px}
+ .costado-terno-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 14px;width:100%;min-height:0;padding:14px 15px;border:1px solid #385163;border-left:4px solid #6f8f3a;border-radius:11px;background:#14212a;color:var(--text);text-align:left}
+ .costado-terno-card.is-waiting{border-left-color:#71808b}
+ .costado-terno-card.is-change-soon{border-color:var(--highlight);border-left-width:4px;background:#1b2b21}
+ .costado-card-status{grid-column:1/-1;display:flex;align-items:center;gap:6px;color:#b6c6cf;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+ .costado-card-status i{width:7px;height:7px;border-radius:50%;background:#79c877;box-shadow:0 0 0 3px #79c87720}
+ .is-waiting .costado-card-status i{background:#82919b;box-shadow:none}
+ .is-change-soon .costado-card-status{color:var(--highlight)}
+ .is-change-soon .costado-card-status i{background:var(--highlight)}
+ .costado-card-head{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid #263b48}
+ .costado-card-head strong{font-size:18px;color:#fff;text-transform:none}
+ .costado-card-head b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--highlight)}
+ .costado-card-now{display:grid;align-content:start;gap:3px}
+ .costado-card-now small,.costado-card-next small{color:#8fa0ac;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+ .costado-card-now strong{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:23px;color:#fff}
+ .costado-card-now em{color:#addcff;font-size:11px;font-style:normal}
+ .costado-card-moves{display:flex;align-items:center;align-self:start;gap:7px;text-align:right}
+ .costado-card-moves b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:32px;line-height:1;color:#dfffaa}
+ .costado-card-moves small{color:#aebdc6;font-size:9px;line-height:1.25;text-transform:uppercase}
+ .costado-card-progress{grid-column:1/-1;height:5px;overflow:hidden;border-radius:999px;background:#29404d}
+ .costado-card-progress i{display:block;width:var(--progress);height:100%;border-radius:inherit;background:var(--highlight)}
+ .costado-card-next{display:grid;gap:2px;padding-top:2px}
+ .costado-card-next strong{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;color:#dce7ec}
+ .costado-card-next>span{color:#94a5af;font-size:10px}
+ .costado-card-open{align-self:end;justify-self:end;color:var(--highlight);font-size:11px;font-weight:800}
+ .costado-events{margin-top:18px;padding:14px;border:1px solid #2a3d49;border-radius:11px;background:#111d25}
+ .costado-events>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+ .costado-events>div>span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+ .costado-events button{min-height:32px;padding:4px 8px;border:0;background:transparent;color:var(--highlight);font-size:11px}
+ .costado-events ol{display:grid;gap:0;margin:9px 0 0;padding:0;list-style:none}
+ .costado-events li{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid #263844;color:#afbec7;font-size:11px;line-height:1.4}
+ .costado-events time{font-family:"IBM Plex Mono",ui-monospace,monospace;color:#8fa0ac}
+ .costado-events li span{display:grid;gap:2px}
+ .costado-events li strong{color:#e4edf1;font-size:11px}
+ .costado-events .costado-no-events{display:block;color:#8fa0ac}
+ .mobile-fleet-selector{display:flex;grid-template-columns:none;overflow-x:auto;gap:7px;margin-top:2px}
+ .mobile-fleet-selector button{flex:0 0 auto;min-width:50px}
+ .mobile-fleet-selector .mobile-overview-button{min-width:max-content;padding-left:10px;padding-right:10px;color:#dce7ec}
+}

@@ -17,7 +17,7 @@ for(const equipment of EQUIPMENT)if(fleet[equipment]&&legacyDemo(fleet[equipment
 if(removedDemo)try{saveFleet(fleet);}catch{/* Os planos reais continuam disponíveis nesta sessão. */}
 if(fleet[state.plan.equipment as keyof Fleet])state=fleet[state.plan.equipment as keyof Fleet]!;
 let view:'board'|'vessels'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
-let reviewSelected=0, reviewDirty=false, mobileMenu=false;
+let reviewSelected=0, reviewDirty=false, mobileMenu=false, mobileOverview=true;
 let mobileEquipment:EquipmentId|undefined;
 type EquipmentId=typeof EQUIPMENT[number];
 let equipmentTeams:Partial<Record<EquipmentId,number>>={};
@@ -96,14 +96,29 @@ function boardCard(equipment:EquipmentId,entry:State){
  const nextText=next?p.steps.slice(r.current+1).map((step,index)=>{const row=rows[index+1];return `<div class="stage-row ${index===0?'next-primary':''} ${index>0?'future-row':''} ${swapSoon&&index===0?'swap-next':''}"><span class="stage-label">${index===0?'A seguir':`${index+2}`}</span><strong>Bay ${esc(step.bay)} ${operationPill(step)}</strong><span class="stage-moves">${step.moves??0} mov.</span><time>${index===0?`Início previsto <b>${nextStart}</b> · `:``}Fim aprox. ${row?.end?time(row.end,p.zone):'A definir'}</time></div>`;}).join(''):`<div class="stage-row empty-next"><span class="stage-label">PRÓXIMO</span><strong>Sem próximo trabalho</strong></div>`;
  const history=activity.length>1?`<details class="card-history"><summary>Ver histórico completo</summary>${activity.map(item=>`<p><time>${time(item.at,p.zone)}</time>${esc(shortMov(item.text))}</p>`).join('')}</details>`:'';
  return `<article class="equipment-card ${active?'running':''} ${swapSoon?'change-soon':''} ${mobileEquipment===equipment?'mobile-selected':''}"><div class="equipment-card-head"><button class="equipment-team" data-action="assign-team" data-equipment="${equipment}" aria-label="Atribuir terno a ${equipment}" title="Atribuir ou alterar terno">${equipmentTeamLabel(equipment)} <span aria-hidden="true">⌄</span></button><span class="tag">${swapSoon?'Troca em breve':active?'Em operação':'Aguardando início'}</span></div>${nowText}<div class="stage-list" aria-label="Sequência das próximas bays">${nextText}</div><div class="card-meta"><span><strong>${cursor?.total??0}</strong> mov acumulados · ${p.rate} mov/h</span>${last?`<p><time>${time(last.at,p.zone)}</time> · ${esc(shortMov(last.text))}</p>`:'<p>Sem alterações registradas</p>'}</div>${history}<footer><div class="card-actions">${active?`<button class="finish-bay" data-action="fleet-finish" data-equipment="${equipment}">Concluir bay →</button>`:`<button class="finish-bay" data-action="fleet-start" data-equipment="${equipment}">Iniciar acompanhamento</button>`}<button class="primary" data-action="fleet-detail" data-equipment="${equipment}" title="Conferir e ajustar o plano">Ver plano</button></div></footer></article>`;
-}function board(){
+}
+function costadoOverview(visible:EquipmentId[],vessel:string){
+ const cards=visible.map(equipment=>{
+  const entry=fleet[equipment]!,current=entry.plan.steps[entry.run.current],next=entry.plan.steps[entry.run.current+1],active=entry.run.started!==null,remaining=active?entry.run.remaining:current?.moves??0;
+  const swapSoon=active&&remaining!==null&&remaining<=CHANGE_SOON_MOVES;
+  const total=current?.moves??0,progress=active&&total>0&&remaining!==null?Math.max(0,Math.min(100,Math.round((total-remaining)/total*100))):0;
+  const team=equipmentTeams[equipment],label=team?`${team}º terno`:'Terno a definir',operation=current?.operation==='descarga'?'Descarga':'Embarque';
+  return `<button class="costado-terno-card ${active?'is-active':'is-waiting'} ${swapSoon?'is-change-soon':''}" data-action="mobile-equipment" data-equipment="${equipment}"><span class="costado-card-status"><i></i>${swapSoon?'Troca em breve':active?'Operando agora':'Aguardando início'}</span><span class="costado-card-head"><strong>${esc(label)}</strong><b>${equipment}</b></span><span class="costado-card-now"><small>Agora</small><strong>Bay ${esc(current?.bay??'—')}</strong><em>${operation}</em></span><span class="costado-card-moves"><b>${remaining??'—'}</b><small>mov<br>restantes</small></span><span class="costado-card-progress"><i style="--progress:${progress}%"></i></span><span class="costado-card-next"><small>Depois</small><strong>${next?`Bay ${esc(next.bay)}`:'Fim do plano'}</strong><span>${next?`${next.moves??0} mov · ${next.operation==='descarga'?'Descarga':'Embarque'}`:'Última etapa'}</span></span><span class="costado-card-open">Acompanhar →</span></button>`;
+ }).join('');
+ const recent=visible.flatMap(equipment=>(activityLog[equipment]??[]).map(item=>({equipment,...item}))).sort((a,b)=>b.at-a.at).slice(0,5);
+ const zone=fleet[visible[0]]?.plan.zone??'America/Sao_Paulo';
+ const timeline=recent.length?recent.map(item=>`<li><time>${time(item.at,zone)}</time><span><strong>${esc(equipmentTeamLabel(item.equipment))}</strong>${esc(shortMov(item.text))}</span></li>`).join(''):'<li class="costado-no-events">As movimentações dos ternos aparecerão aqui.</li>';
+ const operating=visible.filter(id=>fleet[id]?.run.started!==null).length;
+ return `<section class="mobile-costado-overview ${mobileOverview?'is-visible':''}"><div class="costado-overview-head"><span>Operação do navio</span><h1>${esc(vessel)}</h1><p><strong>${operating}</strong> terno${operating===1?'':'s'} operando agora</p></div><div class="costado-terno-list">${cards}</div><section class="costado-events"><div><span>Últimas ocorrências</span><button data-action="sync-all">Atualizar</button></div><ol>${timeline}</ol></section></section>`;
+}
+function board(){
  const visible=EQUIPMENT.filter(id=>{const entry=fleet[id];return !!entry&&entry.run.current<entry.plan.steps.length&&entry.plan.steps.some(step=>(step.moves??0)>0);});
  const operating=visible.filter(id=>fleet[id]?.run.started!==null),first=visible[0];
  if(!mobileEquipment||!visible.includes(mobileEquipment))mobileEquipment=first;
  const vessel=visible.map(id=>fleet[id]?.plan.vessel.trim()).find(Boolean)||'Navio não informado';
  const accumulated=visible.reduce((sum,id)=>sum+(moveCursors[id]?.total??0),0),rate=operating.reduce((sum,id)=>sum+(fleet[id]?.plan.rate??0),0),lastRead=Math.max(0,...visible.map(id=>moveCursors[id]?.reportedAt??0)),stale=!lastRead||Date.now()-lastRead>3*60*1000;
  const updateText=lastRead?(stale?`Sem atualização desde ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')}`:`Atualizado às ${time(lastRead,fleet[visible[0]]?.plan.zone??'America/Sao_Paulo')} · leitura automática`):'Aguardando primeira leitura';
- return `<section class="operations-summary"><div class="vessel-summary"><span>Navio</span><strong>${esc(vessel)}</strong></div><div class="summary-kpis"><span><strong>${operating.length}</strong> em operação</span><span><strong>${accumulated}</strong> mov acumulados</span><span><strong>${rate}</strong> mov/h total</span></div><div class="summary-update ${stale?'stale':''}"><span><i></i>${updateText}</span><button data-action="sync-all">Atualizar agora</button></div></section>${visible.length?`<div class="mobile-fleet-selector" aria-label="Selecionar equipamento">${visible.map(id=>`<button data-action="mobile-equipment" data-equipment="${id}" aria-pressed="${mobileEquipment===id}">${id}</button>`).join('')}</div><section class="fleet-grid">${visible.map(id=>boardCard(id,fleet[id]!)).join('')}</section>`:`<section class="panel fleet-empty"><h2>Nenhum equipamento em operação</h2><p>Importe um Crane Work List para incluir equipamentos no painel.</p><button class="primary" data-action="import">Importar plano</button></section>`}`;
+ return `<section class="operations-summary"><div class="vessel-summary"><span>Navio</span><strong>${esc(vessel)}</strong></div><div class="summary-kpis"><span><strong>${operating.length}</strong> em operação</span><span><strong>${accumulated}</strong> mov acumulados</span><span><strong>${rate}</strong> mov/h total</span></div><div class="summary-update ${stale?'stale':''}"><span><i></i>${updateText}</span><button data-action="sync-all">Atualizar agora</button></div></section>${visible.length?`${costadoOverview(visible,vessel)}<div class="mobile-fleet-selector ${mobileOverview?'overview-selected':''}" aria-label="Navegar entre os ternos"><button class="mobile-overview-button" data-action="mobile-overview">← Todos os ternos</button>${visible.map(id=>`<button data-action="mobile-equipment" data-equipment="${id}" aria-pressed="${!mobileOverview&&mobileEquipment===id}">${equipmentTeams[id]?`${equipmentTeams[id]}º`:id}</button>`).join('')}</div><section class="fleet-grid ${mobileOverview?'mobile-overview-active':''}">${visible.map(id=>boardCard(id,fleet[id]!)).join('')}</section>`:`<section class="panel fleet-empty"><h2>Nenhum equipamento em operação</h2><p>Importe um Crane Work List para incluir equipamentos no painel.</p><button class="primary" data-action="import">Importar plano</button></section>`}`;
 }function vessels(){
  const updated=vesselsReadAt?`Atualizado às ${time(vesselsReadAt,state.plan.zone)}`:'Aguardando leitura';
  const berth=(value:string)=>value.replace(/^BERCO\s*/i,'Berço ');
@@ -163,17 +178,20 @@ function choose(i:number){modal('Selecionar etapa atual',`<p>Começar na bay ${e
 root.addEventListener('click',e=>{const b=(e.target as HTMLElement).closest<HTMLElement>('[data-action]');if(!b)return;e.preventDefault();const action=b.dataset.action,i=Number(b.dataset.index);if(view==='edit')readDraft();
 switch(action){
 case 'dismiss':message='';manualUndo=null;render();break;
-case 'board':view='board';mobileMenu=false;render();break;
+case 'board':view='board';mobileMenu=false;mobileOverview=true;render();break;
 case 'vessels':view='vessels';mobileMenu=false;render();if(!activeVessels.length)void refreshOperatingVessels();break;
 case 'edit':draft=structuredClone(state.plan);view='edit';render();break;
 case 'import':importTarget=null;view='import';render();break;
 case 'mobile-menu':mobileMenu=!mobileMenu;render();break;
-case 'mobile-equipment':mobileEquipment=b.dataset.equipment as EquipmentId;render();break;
+case 'mobile-overview':mobileOverview=true;render();break;
+case 'mobile-equipment':mobileEquipment=b.dataset.equipment as EquipmentId;mobileOverview=false;render();break;
 case 'assign-team':{
  const equipment=b.dataset.equipment as EquipmentId;if(!EQUIPMENT.includes(equipment))break;
  modal(`Terno · ${equipment}`,`<label>Atribuir terno<select name="team">${opt('','Sem terno',String(equipmentTeams[equipment]??''))}${[1,2,3,4,5].map(team=>opt(String(team),`${team}º terno`,String(equipmentTeams[equipment]??''))).join('')}</select></label>`,data=>{
   const value=String(data.get('team')??''),team=Number(value);
   if(value!==''&&(!Number.isInteger(team)||team<1||team>5))throw Error('Escolha do 1º ao 5º terno.');
+  const conflict=value===''?undefined:EQUIPMENT.find(id=>id!==equipment&&equipmentTeams[id]===team);
+  if(conflict)throw Error(`${team}º terno já está atribuído a ${conflict}.`);
   const updated={...equipmentTeams};if(value==='')delete updated[equipment];else updated[equipment]=team;
   try{localStorage.setItem('costado.teams.v1',JSON.stringify(updated));}catch{throw Error('Não foi possível salvar o terno neste aparelho. Tente novamente.');}
   equipmentTeams=updated;render();
