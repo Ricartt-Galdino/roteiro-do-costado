@@ -5,7 +5,7 @@ import { applyMoves, below, continuous, dateTime, delay, demo, finish, forecast,
 import { EQUIPMENT, parseWorkList } from './import';
 import { equipmentMoves, loadMovesFeed, operatingVessels, type MovesReading, type OperatingVessel } from './moves-feed';
 import { registerReadTool } from './webmcp';
-import {renderDistribution,refreshDistribution,selectDistribution} from './distribution';
+import {renderDistribution,refreshDistribution,selectDistribution,toggleDistributionFront,distributionEquipment,saveDistributionEquipment,toggleCamBreak} from './distribution';
 
 const root=document.querySelector<HTMLDivElement>('#app')!;
 const CHANGE_SOON_MOVES=3;
@@ -17,7 +17,7 @@ let fleet:Fleet=loadFleet(state);let removedDemo=false;
 for(const equipment of EQUIPMENT)if(fleet[equipment]&&legacyDemo(fleet[equipment]!)){delete fleet[equipment];removedDemo=true;}
 if(removedDemo)try{saveFleet(fleet);}catch{/* Os planos reais continuam disponíveis nesta sessão. */}
 if(fleet[state.plan.equipment as keyof Fleet])state=fleet[state.plan.equipment as keyof Fleet]!;
-let view:'board'|'vessels'|'distribution'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
+let view:'board'|'vessels'|'distribution'|'reachstacker'|'edit'|'import'='board', draft:Plan=structuredClone(state.plan), horizon=0, message=recovery, ocrText='', warnings:string[]=[], candidates:Plan[]=[], pictures:{url:string;name:string;kind:string}[]=[], busy=false;
 let reviewSelected=0, reviewDirty=false, mobileMenu=false, mobileOverview=true;
 let mobileEquipment:EquipmentId|undefined;
 type EquipmentId=typeof EQUIPMENT[number];
@@ -40,6 +40,20 @@ type ActivityLog=Partial<Record<EquipmentId,Activity[]>>;
 let activityLog:ActivityLog={};
 let manualUndo:{equipment:EquipmentId;run:State['run'];activityCount:number}|null=null;
 let manualUndoTimer:number|undefined;
+let noticeTimer:number|undefined,noticeText='';
+function scheduleNoticeDismiss(){
+ if(message===noticeText)return;
+ if(noticeTimer!==undefined)window.clearTimeout(noticeTimer);
+ noticeText=message;
+ if(!message)return;
+ const shown=message;
+ noticeTimer=window.setTimeout(()=>{
+  if(message!==shown)return;
+  message='';noticeText='';noticeTimer=undefined;
+  // Remover só o aviso preserva campos em edição e a posição de rolagem.
+  root.querySelector('main > .notice')?.remove();
+ },manualUndo?8000:6000);
+}
 try{activityLog=JSON.parse(localStorage.getItem('costado.activity-log.v1')??'{}') as ActivityLog;}catch{activityLog={};}
 function saveActivity(){try{localStorage.setItem('costado.activity-log.v1',JSON.stringify(activityLog));}catch{ /* O acompanhamento segue mesmo sem o histórico persistido. */ }}
 function recordActivity(equipment:EquipmentId,text:string,at=Date.now()){const entries=activityLog[equipment]??[];entries.unshift({at,text});activityLog[equipment]=entries.slice(0,8);saveActivity();}
@@ -75,13 +89,13 @@ async function refreshOperatingVessels(silent=false){
  if(!silent){message='Consultando navios em operação…';render();}
  try{const payload=await loadMovesFeed();activeVessels=operatingVessels(payload);const raw=(payload as {reportReferenceTime?:string;generatedAt?:string}).reportReferenceTime??(payload as {generatedAt?:string}).generatedAt;vesselsReadAt=raw&&Number.isFinite(new Date(raw).getTime())?new Date(raw).getTime():Date.now();}
  catch{if(!silent)message='Não foi possível consultar os navios em operação. Tente novamente em alguns instantes.';}
- finally{vesselsLoading=false;render();}
+ finally{vesselsLoading=false;if(message==='Consultando navios em operação…')message='';render();}
 }
 const status=(index:number)=>state.run.completed[state.plan.steps[index].id]?'✓ Concluído':index===state.run.current&&state.run.started!==null?'▶ Em andamento':index<state.run.current?'— Anterior ao acompanhamento':'○ Planejado';
 function hatchLabel(p:Plan,i:number){const s=p.steps[i];return below(s)?continuous(p.steps[i-1],s)?'↳ Continuidade do acesso':s.hatch==='open'?'✓ Tampa já aberta':s.hatch==='required'?'◇ Abertura necessária':'? Possível abertura — confirmar estado da tampa':s.closure?'◇ Fechamento previsto':p.steps[i-1]&&below(p.steps[i-1])?'? Verificar necessidade de fechamento':'Convés';}
-function header(){const latest=Math.max(vesselsReadAt,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));return `<header><button class="mobile-menu" data-action="mobile-menu" aria-label="Abrir menu">☰</button><a class="brand" href="#" data-action="board"><img src="/icon.svg" alt="" width="42" height="42"><span>ROTEIRO <strong>DO COSTADO</strong></span></a><span class="mobile-header-update">${latest?time(latest,state.plan.zone):'—'}<button data-action="sync-all" aria-label="Atualizar Moves">↻</button></span><nav class="${mobileMenu?'open':''}" aria-label="Principal"><button class="${view==='board'?'selected':''}" data-action="board">Painel operacional</button><button class="${view==='vessels'?'selected':''}" data-action="vessels">Navios em operação</button><button class="${view==='distribution'?'selected':''}" data-action="distribution">Distribuição de Cam.</button><button class="${view==='edit'?'selected':''}" data-action="edit">Conferir plano</button><button class="import-nav ${view==='import'?'selected':''}" data-action="import">Importar</button></nav></header>`;}
+function header(){const latest=Math.max(vesselsReadAt,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));return `<header><button class="mobile-menu" data-action="mobile-menu" aria-label="Abrir menu">☰</button><a class="brand" href="#" data-action="board"><img src="/icon.svg" alt="" width="42" height="42"><span>ROTEIRO <strong>DO COSTADO</strong></span></a><span class="mobile-header-update">${latest?time(latest,state.plan.zone):'—'}<button data-action="sync-all" aria-label="Atualizar Moves">↻</button></span><nav class="${mobileMenu?'open':''}" aria-label="Principal"><button class="${view==='board'?'selected':''}" data-action="board">Painel operacional</button><button class="${view==='vessels'?'selected':''}" data-action="vessels">Navios em operação</button><button class="${view==='distribution'?'selected':''}" data-action="distribution">Distribuição de Cam.</button><button class="${view==='reachstacker'?'selected':''}" data-action="reachstacker">Op. Reach Stacker</button><button class="${view==='edit'?'selected':''}" data-action="edit">Conferir plano</button><button class="import-nav ${view==='import'?'selected':''}" data-action="import">Importar</button></nav></header>`;}
 function distribution(){return renderDistribution();}
-function render(){root.innerHTML=header()+`<main>${message?`<div class="notice" role="status"><span>${esc(message)}</span>${manualUndo?'<button class="notice-undo" data-action="undo-manual">Desfazer</button>':''}<button data-action="dismiss" aria-label="Fechar aviso">×</button></div>`:''}${view==='board'?board():view==='vessels'?vessels():view==='distribution'?distribution():view==='edit'?editor():importer()}</main>${view==='board'||view==='vessels'||view==='distribution'?'':`<footer>Previsão de apoio ao costado. Confirmar alterações com a Sala de Planejamento.<span>Dados neste aparelho · ${esc(state.plan.zone)}</span></footer>`}`;}
+function render(){scheduleNoticeDismiss();root.innerHTML=header()+`<main>${message?`<div class="notice" role="status"><span>${esc(message)}</span>${manualUndo?'<button class="notice-undo" data-action="undo-manual">Desfazer</button>':''}<button data-action="dismiss" aria-label="Fechar aviso">×</button></div>`:''}${view==='board'?board():view==='vessels'?vessels():view==='distribution'?distribution():view==='reachstacker'?renderDistribution('RS'):view==='edit'?editor():importer()}</main>${view==='board'||view==='vessels'||view==='distribution'||view==='reachstacker'?'':`<footer>Previsão de apoio ao costado. Confirmar alterações com a Sala de Planejamento.<span>Dados neste aparelho · ${esc(state.plan.zone)}</span></footer>`}`;}
 function boardCard(equipment:EquipmentId,entry:State){
  const {plan:p,run:r}=entry,current=p.steps[r.current],next=p.steps[r.current+1],rows=forecast(p,r),nextRow=rows[1],cursor=moveCursors[equipment],active=r.started!==null,remaining=active?r.remaining:null,swapSoon=active&&remaining!==null&&remaining<=CHANGE_SOON_MOVES;
  const operationName=(step:typeof current)=>step?.operation==='descarga'?'Descarga':'Embarque';
@@ -183,8 +197,29 @@ case 'dismiss':message='';manualUndo=null;render();break;
 case 'board':view='board';mobileMenu=false;mobileOverview=true;render();break;
 case 'vessels':view='vessels';mobileMenu=false;render();if(!activeVessels.length)void refreshOperatingVessels();break;
 case 'distribution':view='distribution';mobileMenu=false;render();void refreshDistribution(render);break;
+case 'reachstacker':view='reachstacker';mobileMenu=false;render();void refreshDistribution(render);break;
 case 'distribution-refresh':void refreshDistribution(render);break;
 case 'distribution-now':selectDistribution('now','',render);break;
+case 'cam-break':{
+ try{toggleCamBreak(b.dataset.cam??'',b.dataset.person??'');}catch{message='Não foi possível salvar a marcação de intervalo neste navegador.';}
+ render();break;
+}
+case 'distribution-equipment':{
+ const id=b.dataset.front??'',equipment=distributionEquipment(id);
+ modal('Equipamento desta frente',`${field('Equipamento','equipment',equipment.value,'text','maxlength="80" placeholder="Ex.: STS 01, STS 02 ou MHC KONE 01"')}<p>Ajuste local para a data, turno e frente selecionados. Deixe vazio para voltar à informação da sala.</p>`,data=>{
+  try{saveDistributionEquipment(id,String(data.get('equipment')??''));}catch{throw Error('Não foi possível salvar neste navegador. Tente novamente.');}
+  render();
+ });break;
+}
+case 'distribution-toggle':{
+ const id=b.dataset.front??'';
+ toggleDistributionFront(id);
+ const expanded=b.getAttribute('aria-expanded')==='true';
+ b.setAttribute('aria-expanded',String(!expanded));
+ const content=document.getElementById(b.getAttribute('aria-controls')??'');
+ if(content)content.hidden=expanded;
+ break;
+}
 case 'edit':draft=structuredClone(state.plan);view='edit';render();break;
 case 'import':importTarget=null;view='import';render();break;
 case 'mobile-menu':mobileMenu=!mobileMenu;render();break;
@@ -258,7 +293,7 @@ try{const target=importTarget,{readImage}=await import('./ocr');const result=awa
 render();
 registerReadTool(()=>({plan:state.plan,run:state.run,forecast:forecast(state.plan,state.run)}));
 root.addEventListener('change',e=>{const input=e.target as HTMLInputElement;if(input.dataset.camField)selectDistribution(input.dataset.camField,input.value,render);});
-setInterval(()=>{if(view==='board'&&!document.querySelector('dialog'))render();if(view==='distribution'&&document.visibilityState==='visible')void refreshDistribution(render);},30000);
+setInterval(()=>{if(view==='board'&&!document.querySelector('dialog'))render();if((view==='distribution'||view==='reachstacker')&&document.visibilityState==='visible')void refreshDistribution(render);},30000);
 async function syncAllMoves(){const operating=EQUIPMENT.filter(equipment=>fleet[equipment]?.run.started!==null);if(!operating.length){message='Não há equipamentos em operação para atualizar.';render();return;}message='Consultando Moves de todos os equipamentos…';render();await Promise.all(operating.map(equipment=>syncMoves(equipment,false,true)));message=`Moves consultados às ${time(Date.now(),fleet[operating[0]]!.plan.zone)}.`;render();}
 let movesPollTimer:number|undefined;
 function scheduleMovesPoll(){
