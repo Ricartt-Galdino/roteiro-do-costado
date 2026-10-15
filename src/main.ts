@@ -290,7 +290,7 @@ if('serviceWorker' in navigator && import.meta.env.PROD){
   if(document.visibilityState==='visible')void navigator.serviceWorker.getRegistration().then(reg=>reg?.update()).catch(()=>{});
  });
 }
-if('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(()=>navigator.serviceWorker.ready).then(()=>{message='App preparado para uso offline neste aparelho.';render();}).catch(()=>{message='O uso offline ainda não está disponível. Abra por HTTPS ou neste computador por localhost.';render();});
+if('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(()=>navigator.serviceWorker.ready).catch(()=>{message='O uso offline ainda não está disponível. Abra por HTTPS ou neste computador por localhost.';render();});
 
 
 
