@@ -5,6 +5,7 @@ import { applyMoves, below, continuous, dateTime, delay, demo, finish, forecast,
 import { EQUIPMENT, parseWorkList } from './import';
 import { equipmentMoves, loadMovesFeed, operatingVessels, type MovesReading, type OperatingVessel } from './moves-feed';
 import { registerReadTool } from './webmcp';
+import {renderDistribution,refreshDistribution,selectDistribution} from './distribution';
 
 const root=document.querySelector<HTMLDivElement>('#app')!;
 const CHANGE_SOON_MOVES=3;
@@ -79,7 +80,7 @@ async function refreshOperatingVessels(silent=false){
 const status=(index:number)=>state.run.completed[state.plan.steps[index].id]?'✓ Concluído':index===state.run.current&&state.run.started!==null?'▶ Em andamento':index<state.run.current?'— Anterior ao acompanhamento':'○ Planejado';
 function hatchLabel(p:Plan,i:number){const s=p.steps[i];return below(s)?continuous(p.steps[i-1],s)?'↳ Continuidade do acesso':s.hatch==='open'?'✓ Tampa já aberta':s.hatch==='required'?'◇ Abertura necessária':'? Possível abertura — confirmar estado da tampa':s.closure?'◇ Fechamento previsto':p.steps[i-1]&&below(p.steps[i-1])?'? Verificar necessidade de fechamento':'Convés';}
 function header(){const latest=Math.max(vesselsReadAt,...EQUIPMENT.map(equipment=>moveCursors[equipment]?.reportedAt??0));return `<header><button class="mobile-menu" data-action="mobile-menu" aria-label="Abrir menu">☰</button><a class="brand" href="#" data-action="board"><img src="/icon.svg" alt="" width="42" height="42"><span>ROTEIRO <strong>DO COSTADO</strong></span></a><span class="mobile-header-update">${latest?time(latest,state.plan.zone):'—'}<button data-action="sync-all" aria-label="Atualizar Moves">↻</button></span><nav class="${mobileMenu?'open':''}" aria-label="Principal"><button class="${view==='board'?'selected':''}" data-action="board">Painel operacional</button><button class="${view==='vessels'?'selected':''}" data-action="vessels">Navios em operação</button><button class="${view==='distribution'?'selected':''}" data-action="distribution">Distribuição de Cam.</button><button class="${view==='edit'?'selected':''}" data-action="edit">Conferir plano</button><button class="import-nav ${view==='import'?'selected':''}" data-action="import">Importar</button></nav></header>`;}
-function distribution(){return `<section class="panel"><h1>Distribuição de Cam.</h1><p class="muted">Nenhuma distribuição cadastrada.</p></section>`;}
+function distribution(){return renderDistribution();}
 function render(){root.innerHTML=header()+`<main>${message?`<div class="notice" role="status"><span>${esc(message)}</span>${manualUndo?'<button class="notice-undo" data-action="undo-manual">Desfazer</button>':''}<button data-action="dismiss" aria-label="Fechar aviso">×</button></div>`:''}${view==='board'?board():view==='vessels'?vessels():view==='distribution'?distribution():view==='edit'?editor():importer()}</main>${view==='board'||view==='vessels'||view==='distribution'?'':`<footer>Previsão de apoio ao costado. Confirmar alterações com a Sala de Planejamento.<span>Dados neste aparelho · ${esc(state.plan.zone)}</span></footer>`}`;}
 function boardCard(equipment:EquipmentId,entry:State){
  const {plan:p,run:r}=entry,current=p.steps[r.current],next=p.steps[r.current+1],rows=forecast(p,r),nextRow=rows[1],cursor=moveCursors[equipment],active=r.started!==null,remaining=active?r.remaining:null,swapSoon=active&&remaining!==null&&remaining<=CHANGE_SOON_MOVES;
@@ -181,7 +182,9 @@ switch(action){
 case 'dismiss':message='';manualUndo=null;render();break;
 case 'board':view='board';mobileMenu=false;mobileOverview=true;render();break;
 case 'vessels':view='vessels';mobileMenu=false;render();if(!activeVessels.length)void refreshOperatingVessels();break;
-case 'distribution':view='distribution';mobileMenu=false;render();break;
+case 'distribution':view='distribution';mobileMenu=false;render();void refreshDistribution(render);break;
+case 'distribution-refresh':void refreshDistribution(render);break;
+case 'distribution-now':selectDistribution('now','',render);break;
 case 'edit':draft=structuredClone(state.plan);view='edit';render();break;
 case 'import':importTarget=null;view='import';render();break;
 case 'mobile-menu':mobileMenu=!mobileMenu;render();break;
@@ -254,7 +257,8 @@ ocrText=(document.querySelector('#ocr-text') as HTMLTextAreaElement).value;pictu
 try{const target=importTarget,{readImage}=await import('./ocr');const result=await readImage(file,progress=>{message=progress;render();});ocrText=result.text;const extracted=parseWorkList(ocrText);if(target){extracted.plans.forEach(plan=>{plan.vessel=target.vessel;plan.voyage=target.voyage;});extracted.warnings=extracted.warnings.filter(warning=>!/^Navio\/viagem não identificado/i.test(warning));}candidates=extracted.plans;warnings=extracted.warnings;message='Leitura concluída com comparação de duas versões da imagem. Confira as etiquetas e os campos sinalizados antes de usar.';}catch{message='Não foi possível executar o OCR. Tente uma imagem menor e nítida, cole a transcrição ou cadastre manualmente.';}finally{busy=false;render();}});
 render();
 registerReadTool(()=>({plan:state.plan,run:state.run,forecast:forecast(state.plan,state.run)}));
-setInterval(()=>{if(view==='board'&&!document.querySelector('dialog'))render();},30000);
+root.addEventListener('change',e=>{const input=e.target as HTMLInputElement;if(input.dataset.camField)selectDistribution(input.dataset.camField,input.value,render);});
+setInterval(()=>{if(view==='board'&&!document.querySelector('dialog'))render();if(view==='distribution'&&document.visibilityState==='visible')void refreshDistribution(render);},30000);
 async function syncAllMoves(){const operating=EQUIPMENT.filter(equipment=>fleet[equipment]?.run.started!==null);if(!operating.length){message='Não há equipamentos em operação para atualizar.';render();return;}message='Consultando Moves de todos os equipamentos…';render();await Promise.all(operating.map(equipment=>syncMoves(equipment,false,true)));message=`Moves consultados às ${time(Date.now(),fleet[operating[0]]!.plan.zone)}.`;render();}
 let movesPollTimer:number|undefined;
 function scheduleMovesPoll(){
